@@ -15,6 +15,7 @@ const chartList = require('../db/chartList')
 // 8.添加错误
 // 9.删除错误
 // 10.拉黑错误
+// 11.通过分组错误
 
 // 添加好友验证
 exports.addFriend = (socket, io) => {
@@ -34,6 +35,15 @@ exports.addFriend = (socket, io) => {
       io.to(socket.id).emit('friendControl', {
         type: 8,
         message: '不能添加自己为好友'
+      })
+      return
+    }
+    const friend = await sql.getOne(user, { userId: friendId })
+    if (!friend) {
+      // 没有这个用户
+      io.to(socket.id).emit('friendControl', {
+        type: 8,
+        message: '没有查询到此用户'
       })
       return
     }
@@ -78,8 +88,8 @@ exports.addFriend = (socket, io) => {
         )
 
         // 判断是否在线
-        const friend = (await sql.get(user, { userId: friendId }))[0]
-        if (friend.status != 0) {
+        const friend = await sql.getOne(user, { userId: friendId })
+        if ( friend.status != 0) {
           // 好友在线
           // 发送验证消息
           io.to(friend.socketId).emit('friendControl', {
@@ -133,7 +143,6 @@ exports.addFriend = (socket, io) => {
           { friendType: 1, friendTime: time, addMessage: hasUser.addMessage }
         )
         // 判断是否在线
-        const friend = (await sql.get(user, { userId: friendId }))[0]
         if (friend.status != 0) {
           // 好友在线
           // 发送验证消息
@@ -281,6 +290,40 @@ exports.blacklistFriend = (socket, io) => {
         io.to(socket.id).emit('friendControl', {
             type: 3,
             message: '拉黑成功'
+        })
+    })
+}
+
+// 通过验证
+exports.passFriend = (socket, io) => {
+    socket.on('passFriend', async data => {
+        const { userId, friendId } = data
+        // 缺少id
+        if (!userId || !friendId) {
+            io.to(socket.id).emit('friendControl', {
+                type: 11,
+                message: '缺少id'
+            })
+            return
+        }
+        // 已经是好友
+        const hasfriend = await sql.getOne(friendList, { userId, friendId,friendType:1 })
+        if (hasfriend) {
+            io.to(socket.id).emit('friendControl', {
+                type: 11,
+                message: 'TA已经是你的好友'
+            })
+            return
+        }
+        // 执行通过
+        // 我的
+        await sql.set(friendList, { userId, friendId }, { friendType: 1 })
+        // 好友的
+        await sql.set(friendList, { userId: friendId, friendId: userId }, { friendType: 1 })
+        // 给自己发送通过成功消息
+        io.to(socket.id).emit('friendControl', {
+            type: 7,
+            message: '通过成功'
         })
     })
 }

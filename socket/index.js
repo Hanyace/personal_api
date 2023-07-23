@@ -1,5 +1,5 @@
 const { singleChart } = require('./chartting')
-const { addFriend, deleteFriend, blacklistFriend } = require('./friendControl')
+const { addFriend, deleteFriend, blacklistFriend, passFriend } = require('./friendControl')
 const { verificationToken } = require('../jwt')
 const sql = require('../db/sql')
 const user = require('../db/users')
@@ -46,6 +46,8 @@ module.exports = function (server) {
       deleteFriend(socket, io)
       // 拉黑好友监听
       blacklistFriend(socket, io)
+      // 通过好友监听
+      passFriend(socket, io)
 
     } catch (error) {
       // 没有token断开连接
