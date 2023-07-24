@@ -35,7 +35,10 @@ async function connect () {
 //   })
   // sorted set
 //   const time = (new Date().getTime()).toString()
-  await client.zAdd('cook', new Date().getTime(), '测试消息', (err, res) => {
+  await client.zAdd('cook', {
+    score: new Date().getTime(), 
+    value: '测试消息'
+  }, (err, res) => {
     if (err) {
       console.log(err)
       return
