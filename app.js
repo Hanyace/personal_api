@@ -13,6 +13,7 @@ var chartListRouter = require('./routes/chartList');
 var chartRecordRouter = require('./routes/chartRecord');
 const multer = require('./utils/multer');
 const cors = require('cors');
+const redisClient = require('./redis');
 
 var app = express();
 
