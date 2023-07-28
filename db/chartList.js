@@ -1,4 +1,4 @@
-const mongoose = require('./db')
+const mongoose = require('../mongo')
 const Schema = mongoose.Schema
 
 // 聊天信息表
@@ -8,7 +8,7 @@ const chartListSchema = new mongoose.Schema({
   lastMessage: { type: String }, // 最后一条消息
   lastTime: { type: String }, // 最后一条消息时间
   messageNum: { type: Number, default: 0 }, // 未读消息数
-  messageType: { type: String }, // 最后一条消息类型
+  messageType: { type: Number }, // 最后一条消息类型
   isTop: { type: Boolean, default: false }, // 是否置顶
   setTopTime: { type: Date } // 置顶时间
 })

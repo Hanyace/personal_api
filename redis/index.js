@@ -46,14 +46,16 @@ async function connect () {
     console.log(res)
   })
 
-//   await client.zRange('zset', 0, 1, (err, res) => {
-//     if (err) {
-//       console.log(err)
-//       return
-//     }
-//     console.log('zRange')
-//     console.log(res)
-//   })
+  const res = await client.zRange('cook', 0, -1, (err, res) => {
+    if (err) {
+      console.log(err)
+      return
+    }
+    console.log('zRange')
+    console.log(res)
+  })
+
+  console.log(res);
 }
 
 connect()

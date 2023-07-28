@@ -1,4 +1,4 @@
-const mongoose = require('./db')
+const mongoose = require('../mongo')
 
 // 好友分组表
 const friendGroupSchema = new mongoose.Schema({
