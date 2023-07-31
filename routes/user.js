@@ -118,4 +118,88 @@ router.get('/friend_list', async (req, res, next) => {
   }
 })
 
+// 搜索用户
+router.post('/search_user', async (req, res, next) => {
+  const token = req.get('Authorization')
+  const { searchTerm } = req.body
+  if (!token) {
+    res.json(responseData(401, '缺少token'))
+  } else {
+    verificationToken(token)
+      .then(async decode => {
+        try {
+          let result = null
+          if(searchTerm.includes('@')){
+             result = await sql.getOne(
+              user, { email: searchTerm }, {}, {
+                __v: 0,
+                _id: 0,
+                password: 0,
+                isRegister: 0,
+                registerCode: 0,
+                time: 0,
+                socketId: 0
+              }
+            )
+          }
+          else {
+            const reg = new RegExp(searchTerm, 'i')
+            result = await sql.get(
+              user, { username: reg }, {}, {
+                __v: 0,
+                _id: 0,
+                password: 0,
+                isRegister: 0,
+                registerCode: 0,
+                time: 0,
+                socketId: 0
+              }
+            )
+          }
+          res.json(responseData(200, '获取成功', result))
+        } catch (err) {
+          res.json(responseData(200, '获取失败'))
+          console.log(err)
+        }
+      })
+      .catch(err => {
+        res.json(responseData(401, 'token失效'))
+        console.log(err)
+      })
+  }
+})
+
+// 通过id查询用户
+router.post('/search_user_by_id', async (req, res, next) => {
+  const token = req.get('Authorization')
+  const { id } = req.body
+  if (!token) {
+    res.json(responseData(401, '缺少token'))
+  } else {
+    verificationToken(token)
+      .then(async decode => {
+        try {
+          const result = await sql.getOne(
+            user, { userId:id }, {}, {
+              __v: 0,
+              _id: 0,
+              password: 0,
+              isRegister: 0,
+              registerCode: 0,
+              time: 0,
+              socketId: 0
+            }
+          )
+          res.json(responseData(200, '获取成功', result))
+        } catch (err) {
+          res.json(responseData(200, '获取失败'))
+          console.log(err)
+        }
+      })
+      .catch(err => {
+        res.json(responseData(401, 'token失效'))
+        console.log(err)
+      })
+  }
+})
 module.exports = router

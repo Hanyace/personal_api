@@ -1,8 +1,15 @@
 const { singleChart } = require('./chartting')
-const { addFriend, deleteFriend, blacklistFriend, passFriend } = require('./friendControl')
+const {
+  addFriend,
+  deleteFriend,
+  blacklistFriend,
+  passFriend
+} = require('./friendControl')
 const { verificationToken } = require('../jwt')
 const sql = require('../db/sql')
 const user = require('../db/users')
+const client = require('../redis')
+const { writeFriendList, writeUserInfo, writeChartList } = require('../redis/unloading')
 
 module.exports = function (server) {
   const io = require('socket.io')(server, {
@@ -23,10 +30,13 @@ module.exports = function (server) {
         if (resUser.status === 0 || !resUser) {
           console.log('用户未登录')
           socket.disconnect()
-          offline(userId)
+          await offline(userId)
         } else {
           // 写入socketId 更新用户状态
-          await sql.set(user, { userId }, { status: 1, socketId: socket.id })
+          // await sql.set(user, { userId }, { status: 1, socketId: socket.id })
+
+          // 写入redisuserSatatus
+          await online(userId, socket.id)
           console.log(resUser.userName + '已连接')
           console.log('socketId：' + socket.id)
         }
@@ -34,7 +44,7 @@ module.exports = function (server) {
         // 出现错误断开连接
         console.log(error)
         socket.disconnect()
-        offline(userId)
+        await offline(userId)
       }
 
       // -------------------- 模块函数 --------------------
@@ -48,7 +58,6 @@ module.exports = function (server) {
       blacklistFriend(socket, io)
       // 通过好友监听
       passFriend(socket, io)
-
     } catch (error) {
       // 没有token断开连接
       socket.emit('disconnect_msg', {
@@ -61,10 +70,19 @@ module.exports = function (server) {
   })
 }
 
-
 // -------------------- utils method --------------------
 // 下线改变用户状态
-function offline(userId) {
-  sql.set(user, { userId }, { status: 0 })
+async function offline (userId) {
+  await client.hSet('userSatatus', userId, 0)
+  await client.hDel('socketId', userId)
   console.log(userId + '离线')
+}
+
+// 上线改变用户状态
+async function online (userId, socketId) {
+  await client.hSet('socketId', userId, socketId)
+  await client.hSet('userSatatus', userId, 1)
+  await writeUserInfo(userId)
+  await writeFriendList(userId)
+  await writeChartList(userId)
 }

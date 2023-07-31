@@ -1,5 +1,5 @@
 const { createClient } = require('redis')
-const cron = require('node-cron')
+
 
 // 创建redis连接
 const client = createClient({
@@ -25,37 +25,12 @@ client.on('error', err => {
 // 连接
 async function connect () {
   await client.connect()
-//   await client.rPush('messageList', '1231', (err, res) => {
-//     if (err) {
-//       console.log(err)
-//       return
-//     } else {
-//       console.log(res)
-//     }
-//   })
-  // sorted set
-//   const time = (new Date().getTime()).toString()
-  await client.zAdd('cook', {
-    score: new Date().getTime(), 
-    value: '测试消息'
-  }, (err, res) => {
-    if (err) {
-      console.log(err)
-      return
-    }
-    console.log(res)
-  })
-
-  const res = await client.zRange('cook', 0, -1, (err, res) => {
-    if (err) {
-      console.log(err)
-      return
-    }
-    console.log('zRange')
-    console.log(res)
-  })
-
-  console.log(res);
+  // await client.hSet('userStatus', {
+  //   'a': '在线',
+  //   'b': '离线',
+  // })
+  // const userStatus = await client.hGetAll('userStatus')
+  // console.log(userStatus.a)
 }
 
 connect()

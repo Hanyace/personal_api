@@ -2,6 +2,8 @@ const sql = require('../db/sql')
 const user = require('../db/users')
 const friendList = require('../db/friendList')
 const chartList = require('../db/chartList')
+const client = require('../redis')
+const { findFromList } = require('../redis/redisUtils')
 
 // 规定返回的Type
 // 0.主动添加
@@ -16,12 +18,15 @@ const chartList = require('../db/chartList')
 // 9.删除错误
 // 10.拉黑错误
 // 11.通过分组错误
+// 12.被通过验证
 
 // 添加好友验证
 exports.addFriend = (socket, io) => {
   socket.on('addFriend', async data => {
     const time = new Date().getTime()
     const { userId, friendId, friendGroup = 0, addMessage } = data
+    const isOnline = await client.hGet('userSatatus', friendId)
+    const friendSocketId = await client.hGet('socketId', friendId)
     // 缺少id
     if (!userId || !friendId) {
       io.to(socket.id).emit('friendControl', {
@@ -48,18 +53,18 @@ exports.addFriend = (socket, io) => {
       return
     }
     // 查询是之前是否添加过
-    const hasfriend = (await sql.get(friendList, { userId, friendId }))[0]
+    const hasfriend = findFromList('friendList', userId, 'friendId', friendId)
     if (hasfriend) {
       // 之前添加过
       // 判断是否已经是好友
-      if (hasfriend.friendType === 1) {
+      if (hasfriend.friendType == 1) {
         // 已经是好友
         // 给自己发送已经是好友了
         io.to(socket.id).emit('friendControl', {
           type: 6
         })
         return
-      } else if (hasfriend.friendType === 0) {
+      } else if (hasfriend.friendType == 0) {
         // 之前添加过但是还未通过
         hasfriend.addMessage.push({
           message: addMessage,
@@ -73,9 +78,10 @@ exports.addFriend = (socket, io) => {
           { addMessage: hasfriend.addMessage }
         )
         // 更新朋友的验证消息
-        const hasUser = (
-          await sql.get(friendList, { userId: friendId, friendId: userId })
-        )[0]
+        const hasUser = await sql.getOne(friendList, {
+          userId: friendId,
+          friendId: userId
+        })
         hasUser.addMessage.push({
           message: addMessage,
           time,
@@ -88,12 +94,14 @@ exports.addFriend = (socket, io) => {
         )
 
         // 判断是否在线
-        const friend = await sql.getOne(user, { userId: friendId })
-        if ( friend.status != 0) {
+        // 使用redis判断是否在线
+        const isOnline = await client.hGet('userSatatus', friendId)
+        const friendSocketId = await client.hGet('socketId', friendId)
+        if (isOnline != 0) {
           // 好友在线
           // 发送验证消息
-          io.to(friend.socketId).emit('friendControl', {
-            userId: friend.userId,
+          io.to(friendSocketId).emit('friendControl', {
+            userId: friendId,
             friendId: userId,
             friendGroup,
             friendTime: time,
@@ -128,9 +136,11 @@ exports.addFriend = (socket, io) => {
             addMessage: hasfriend.addMessage
           }
         )
-        const hasUser = (
-          await sql.get(friendList, { userId: friendId, friendId: userId })
-        )[0]
+        const hasUser = await sql.getOne(friendList, {
+          userId: friendId,
+          friendId: userId
+        })
+
         hasUser.addMessage.push({
           message: addMessage,
           time,
@@ -143,10 +153,10 @@ exports.addFriend = (socket, io) => {
           { friendType: 1, friendTime: time, addMessage: hasUser.addMessage }
         )
         // 判断是否在线
-        if (friend.status != 0) {
+        if (isOnline != 0) {
           // 好友在线
           // 发送验证消息
-          io.to(friend.socketId).emit('friendControl', {
+          io.to(friendSocketId).emit('friendControl', {
             userId: friend.userId,
             friendId: userId,
             friendGroup,
@@ -196,10 +206,10 @@ exports.addFriend = (socket, io) => {
 
       // 判断是否在线
       const friend = (await sql.get(user, { userId: friendId }))[0]
-      if (friend.status != 0) {
+      if (isOnline != 0) {
         // 好友在线
         // 发送验证消息
-        io.to(friend.socketId).emit('friendControl', {
+        io.to(friendSocketId).emit('friendControl', {
           userId: friend.userId,
           friendId: userId,
           friendGroup,
@@ -255,75 +265,115 @@ exports.deleteFriend = (socket, io) => {
     // 还可以删除聊天记录,但实际上数据库不会删除记录,只是不会显示
     // 给自己发送删除成功消息
     io.to(socket.id).emit('friendControl', {
-        type: 2,
-        message: '删除成功'
+      type: 2,
+      message: '删除成功'
     })
   })
 }
 
 // 拉黑好友
 exports.blacklistFriend = (socket, io) => {
-    socket.on('blacklistFriend', async data => {
-        const { userId, friendId } = data
-        // 缺少id
-        if (!userId || !friendId) {
-            io.to(socket.id).emit('friendControl', {
-                type: 10,
-                message: '缺少id'
-            })
-            return
-        }
-        // 原本不是好友
-        const hasfriend = (await sql.get(friendList, { userId, friendId }))[0] 
-        if (!hasfriend) {
-            io.to(socket.id).emit('friendControl', {
-                type: 10,
-                message: 'TA还不是你的好友'
-            })
-            return
-        }
-        // 执行拉黑
-        // 我的
-        await sql.set(friendList, { userId, friendId }, { friendType: 3 })
-        // 好友的不用执行拉黑
-        // 给自己发送拉黑成功消息
-        io.to(socket.id).emit('friendControl', {
-            type: 3,
-            message: '拉黑成功'
-        })
+  socket.on('blacklistFriend', async data => {
+    const { userId, friendId } = data
+    // 缺少id
+    if (!userId || !friendId) {
+      io.to(socket.id).emit('friendControl', {
+        type: 10,
+        message: '缺少id'
+      })
+      return
+    }
+    // 原本不是好友
+    const hasfriend = await sql.getOne(friendList, { userId, friendId })
+    if (!hasfriend) {
+      io.to(socket.id).emit('friendControl', {
+        type: 10,
+        message: 'TA还不是你的好友'
+      })
+      return
+    }
+    // 执行拉黑
+    // 我的
+    await sql.set(friendList, { userId, friendId }, { friendType: 3 })
+    // 好友的不用执行拉黑
+    // 给自己发送拉黑成功消息
+    io.to(socket.id).emit('friendControl', {
+      type: 3,
+      message: '拉黑成功'
     })
+  })
 }
 
 // 通过验证
 exports.passFriend = (socket, io) => {
-    socket.on('passFriend', async data => {
-        const { userId, friendId } = data
-        // 缺少id
-        if (!userId || !friendId) {
-            io.to(socket.id).emit('friendControl', {
-                type: 11,
-                message: '缺少id'
-            })
-            return
-        }
-        // 已经是好友
-        const hasfriend = await sql.getOne(friendList, { userId, friendId,friendType:1 })
-        if (hasfriend) {
-            io.to(socket.id).emit('friendControl', {
-                type: 11,
-                message: 'TA已经是你的好友'
-            })
-            return
-        }
-        // 执行通过
-        // 我的
-        await sql.set(friendList, { userId, friendId }, { friendType: 1 })
-        // 好友的
-        await sql.set(friendList, { userId: friendId, friendId: userId }, { friendType: 1 })
-        // 给自己发送通过成功消息
-        io.to(socket.id).emit('friendControl', {
-            type: 7,
-            message: '通过成功'
-        })
+  socket.on('passFriend', async data => {
+    const { userId, friendId } = data
+    // 缺少id
+    if (!userId || !friendId) {
+      io.to(socket.id).emit('friendControl', {
+        type: 11,
+        message: '缺少id'
+      })
+      return
+    }
+    // 已经是好友
+    const hasfriend = await sql.getOne(friendList, {
+      userId,
+      friendId,
+      friendType: 1
     })
+    if (hasfriend) {
+      io.to(socket.id).emit('friendControl', {
+        type: 11,
+        message: 'TA已经是你的好友'
+      })
+      return
+    }
+    // 执行通过
+    // 我的
+    await sql.set(friendList, { userId, friendId }, { friendType: 1 })
+    // 加入聊天表
+    await sql.add(chartList, { userId, friendId, lastMessage: '', lastTime: 0 })
+    // 好友的
+    await sql.set(
+      friendList,
+      { userId: friendId, friendId: userId },
+      { friendType: 1 }
+    )
+    // 加入聊天表
+    await sql.add(chartList, {
+      userId: friendId,
+      friendId: userId,
+      lastMessage: '',
+      lastTime: 0
+    })
+    // 给自己发送通过成功消息
+    io.to(socket.id).emit('friendControl', {
+      type: 7,
+      message: '通过成功'
+    })
+    // 单聊界面发送
+    const emitData = {
+      friendId: data.friendId,
+      message: data.message,
+      messageType: data.messageType,
+      messageTime
+    }
+    // 列表界面发送
+    const emitListData = {
+      lastTime: messageTime,
+      lastMessage: data.message,
+      messageType: data.messageType
+    }
+    // 好友在线
+    const isOnline = await client.hGet('userSatatus', friendId)
+    const friendSocketId = await client.hGet('userSocketId', friendId)
+    if (isOnline != 0) {
+      // 发送通过成功消息
+      io.to(friendSocketId).emit('friendControl', {
+        type: 12,
+        message: '被通过成功'
+      })
+    }
+  })
 }
