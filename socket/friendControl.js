@@ -25,13 +25,11 @@ exports.addFriend = (socket, io) => {
   socket.on('addFriend', async data => {
     const time = new Date().getTime()
     const { userId, friendId, friendGroup = 0, addMessage } = data
-    const isOnline = await client.hGet('userSatatus', friendId)
-    const friendSocketId = await client.hGet('socketId', friendId)
     // 缺少id
     if (!userId || !friendId) {
       io.to(socket.id).emit('friendControl', {
         type: 8,
-        message: '缺少id'
+        message: '没有收到好友id哦~'
       })
       return
     }
@@ -39,21 +37,29 @@ exports.addFriend = (socket, io) => {
       // 给自己发送添加动作
       io.to(socket.id).emit('friendControl', {
         type: 8,
-        message: '不能添加自己为好友'
+        message: '不能添加自己为好友啦~'
       })
       return
     }
     const friend = await sql.getOne(user, { userId: friendId })
+    const userInfo = await sql.getOne(user, { userId })
     if (!friend) {
       // 没有这个用户
       io.to(socket.id).emit('friendControl', {
         type: 8,
-        message: '没有查询到此用户'
+        message: '没有查询到此用户哦~'
       })
       return
     }
+    const isOnline = await client.hGet('userSatatus', friendId)
+    const friendSocketId = await client.hGet('socketId', friendId)
     // 查询是之前是否添加过
-    const hasfriend = findFromList('friendList', userId, 'friendId', friendId)
+    const hasfriend = await findFromList(
+      'friendList',
+      userId,
+      'friendId',
+      friendId
+    )
     if (hasfriend) {
       // 之前添加过
       // 判断是否已经是好友
@@ -61,7 +67,8 @@ exports.addFriend = (socket, io) => {
         // 已经是好友
         // 给自己发送已经是好友了
         io.to(socket.id).emit('friendControl', {
-          type: 6
+          type: 6,
+          message: '已经是好友啦~'
         })
         return
       } else if (hasfriend.friendType == 0) {
@@ -90,7 +97,7 @@ exports.addFriend = (socket, io) => {
         await sql.set(
           friendList,
           { userId: friendId, friendId: userId },
-          { addMessage: hasUser.addMessage }
+          { addMessage: hasUser.addMessage,  isView: false }
         )
 
         // 判断是否在线
@@ -105,8 +112,10 @@ exports.addFriend = (socket, io) => {
             friendId: userId,
             friendGroup,
             friendTime: time,
-            type: 1,
-            addMessage: hasUser.addMessage
+            addMessage: hasUser.addMessage,
+            avatar: userInfo.avatar,
+            username: userInfo.userName,
+            type: 1
           })
         }
         // 给自己发送添加动作成功消息
@@ -115,8 +124,10 @@ exports.addFriend = (socket, io) => {
           friendId,
           friendGroup,
           friendTime: time,
-          type: 0,
-          addMessage: hasfriend.addMessage
+          addMessage: hasfriend.addMessage,
+          avatar: friend.avatar,
+          username: friend.userName,
+          type: 0
         })
       } else if (hasfriend.friendType === 2) {
         // 之前被添加过
@@ -150,7 +161,7 @@ exports.addFriend = (socket, io) => {
         await sql.set(
           friendList,
           { userId: friendId, friendId: userId },
-          { friendType: 1, friendTime: time, addMessage: hasUser.addMessage }
+          { friendType: 1, friendTime: time, addMessage: hasUser.addMessage, isView: false }
         )
         // 判断是否在线
         if (isOnline != 0) {
@@ -161,8 +172,10 @@ exports.addFriend = (socket, io) => {
             friendId: userId,
             friendGroup,
             friendTime: time,
-            type: 7,
-            addMessage: hasUser.addMessage
+            addMessage: hasUser.addMessage,
+            avatar: userInfo.avatar,
+            username: userInfo.userName,
+            type: 7
           })
         }
         // 给自己发送添加动作成功消息
@@ -171,8 +184,10 @@ exports.addFriend = (socket, io) => {
           friendId,
           friendGroup,
           friendTime: time,
-          type: 7,
-          addMessage: hasfriend.addMessage
+          addMessage: hasfriend.addMessage,
+          avatar: friend.avatar,
+          username: friend.userName,
+          type: 7
         })
         return
       } else if (hasfriend.friendType === 3) {
@@ -180,7 +195,7 @@ exports.addFriend = (socket, io) => {
         // 给自己发送添加动作
         io.to(socket.id).emit('friendControl', {
           type: 8,
-          message: '你已经被对方拉黑,无法添加好友'
+          message: '你已经被对方拉黑,无法添加好友哦~'
         })
         return
       }
@@ -192,7 +207,8 @@ exports.addFriend = (socket, io) => {
         friendId,
         friendGroup,
         friendTime: time,
-        addMessage: addMessage ? [{ message: addMessage, time, type: 0 }] : []
+        addMessage: addMessage ? [{ message: addMessage, time, type: 0 }] : [],
+        isView: true
       })
       // 好友的好友列表(默认被添加)
       await sql.add(friendList, {
@@ -201,7 +217,8 @@ exports.addFriend = (socket, io) => {
         friendGroup,
         friendTime: time,
         friendType: 2,
-        addMessage: addMessage ? [{ message: addMessage, time, type: 1 }] : []
+        addMessage: addMessage ? [{ message: addMessage, time, type: 1 }] : [],
+        isView: false
       })
 
       // 判断是否在线
@@ -214,8 +231,12 @@ exports.addFriend = (socket, io) => {
           friendId: userId,
           friendGroup,
           friendTime: time,
+          addMessage: addMessage
+            ? [{ message: addMessage, time, type: 1 }]
+            : [],
           type: 1,
-          addMessage: addMessage ? [{ message: addMessage, time, type: 1 }] : []
+          avatar: userInfo.avatar,
+          username: userInfo.userName
         })
       }
       // 给自己发送添加动作成功消息
@@ -224,8 +245,10 @@ exports.addFriend = (socket, io) => {
         friendId,
         friendGroup,
         friendTime: time,
+        addMessage: addMessage ? [{ message: addMessage, time, type: 0 }] : [],
         type: 0,
-        addMessage: addMessage ? [{ message: addMessage, time, type: 0 }] : []
+        avatar: friend.avatar,
+        username: friend.userName
       })
     }
   })
@@ -239,7 +262,7 @@ exports.deleteFriend = (socket, io) => {
     if (!userId || !friendId) {
       io.to(socket.id).emit('friendControl', {
         type: 9,
-        message: '缺少id'
+        message: '没有收到好友id哦~'
       })
       return
     }
@@ -248,7 +271,7 @@ exports.deleteFriend = (socket, io) => {
     if (!hasfriend) {
       io.to(socket.id).emit('friendControl', {
         type: 9,
-        message: 'TA还不是你的好友'
+        message: 'TA还不是你的好友哦~'
       })
       return
     }
@@ -266,7 +289,7 @@ exports.deleteFriend = (socket, io) => {
     // 给自己发送删除成功消息
     io.to(socket.id).emit('friendControl', {
       type: 2,
-      message: '删除成功'
+      message: '删除成功啦!'
     })
   })
 }
@@ -279,7 +302,7 @@ exports.blacklistFriend = (socket, io) => {
     if (!userId || !friendId) {
       io.to(socket.id).emit('friendControl', {
         type: 10,
-        message: '缺少id'
+        message: '没有收到好友id哦~'
       })
       return
     }
@@ -288,7 +311,7 @@ exports.blacklistFriend = (socket, io) => {
     if (!hasfriend) {
       io.to(socket.id).emit('friendControl', {
         type: 10,
-        message: 'TA还不是你的好友'
+        message: 'TA还不是你的好友哦~'
       })
       return
     }
@@ -299,7 +322,7 @@ exports.blacklistFriend = (socket, io) => {
     // 给自己发送拉黑成功消息
     io.to(socket.id).emit('friendControl', {
       type: 3,
-      message: '拉黑成功'
+      message: '拉黑成功!'
     })
   })
 }
@@ -312,7 +335,7 @@ exports.passFriend = (socket, io) => {
     if (!userId || !friendId) {
       io.to(socket.id).emit('friendControl', {
         type: 11,
-        message: '缺少id'
+        message: '没有收到好友id哦~'
       })
       return
     }
@@ -325,7 +348,7 @@ exports.passFriend = (socket, io) => {
     if (hasfriend) {
       io.to(socket.id).emit('friendControl', {
         type: 11,
-        message: 'TA已经是你的好友'
+        message: 'TA已经是你的好友哦~'
       })
       return
     }
@@ -338,7 +361,7 @@ exports.passFriend = (socket, io) => {
     await sql.set(
       friendList,
       { userId: friendId, friendId: userId },
-      { friendType: 1 }
+      { friendType: 1, isView: false }
     )
     // 加入聊天表
     await sql.add(chartList, {
@@ -350,7 +373,7 @@ exports.passFriend = (socket, io) => {
     // 给自己发送通过成功消息
     io.to(socket.id).emit('friendControl', {
       type: 7,
-      message: '通过成功'
+      message: '哇哦,通过成功啦!'
     })
     // 单聊界面发送
     const emitData = {
@@ -372,7 +395,47 @@ exports.passFriend = (socket, io) => {
       // 发送通过成功消息
       io.to(friendSocketId).emit('friendControl', {
         type: 12,
-        message: '被通过成功'
+        message: '有人通过好友请求啦!'
+      })
+    }
+  })
+}
+
+// 拒绝验证
+exports.refuseFriend = (socket, io) => {
+  socket.on('refuseFriend', async data => {
+    const { userId, friendId } = data
+    // 缺少id
+    if (!userId || !friendId) {
+      io.to(socket.id).emit('friendControl', {
+        type: 11,
+        message: '没有收到好友id哦~'
+      })
+      return
+    }
+    const time = new Date().getTime()
+    // 执行拒绝
+    // 我的
+    await sql.set(friendList, { userId, friendId }, { friendType: 4 })
+    // 好友
+    await sql.set(
+      friendList,
+      { userId: friendId, friendId: userId },
+      { friendType: 5, isView: false }
+    )
+    // 给自己发送拒绝成功消息
+    io.to(socket.id).emit('friendControl', {
+      message: '拒绝成功!',
+      type: 4
+    })
+    // 好友在线
+    const isOnline = await client.hGet('userSatatus', friendId)
+    const friendSocketId = await client.hGet('userSocketId', friendId)
+    if (isOnline != 0) {
+      // 发送拒绝成功消息
+      io.to(friendSocketId).emit('friendControl', {
+        message: '啊哦,有人拒绝了你的好友请求哦~',
+        type: 13
       })
     }
   })

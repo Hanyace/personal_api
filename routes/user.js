@@ -4,6 +4,7 @@ const user = require('../db/users')
 const sql = require('../db/sql')
 const chartList = require('../db/chartList')
 const friendList = require('../db/friendList')
+const friendGroup = require('../db/friendGroup')
 const jwt = require('jsonwebtoken')
 const fs = require('fs')
 const path = require('path')
@@ -118,6 +119,30 @@ router.get('/friend_list', async (req, res, next) => {
   }
 })
 
+// 查询用户分组
+router.get('/group_list', async (req, res, next) => {
+  const token = req.get('Authorization')
+  if (!token) {
+    res.json(responseData(401, '缺少token'))
+  } else {
+    verificationToken(token)
+      .then(async decode => {
+        try {
+          const result = await sql.getOne(friendGroup, { userId: decode.userId })
+          res.json(responseData(200, '获取成功', result.friendGroup))
+        } catch (error) {
+          res.json(responseData(200, '获取失败'))
+          console.log(error)
+        }
+      })
+      .catch(err => {
+        res.json(responseData(401, 'token失效'))
+        console.log(err)
+      })
+  }
+})
+
+
 // 搜索用户
 router.post('/search_user', async (req, res, next) => {
   const token = req.get('Authorization')
@@ -141,11 +166,14 @@ router.post('/search_user', async (req, res, next) => {
                 socketId: 0
               }
             )
+            if(result.userId === decode.userId){
+              result = []
+            }
           }
           else {
             const reg = new RegExp(searchTerm, 'i')
             result = await sql.get(
-              user, { username: reg }, {}, {
+              user, { userName: reg }, {}, {
                 __v: 0,
                 _id: 0,
                 password: 0,
@@ -155,6 +183,7 @@ router.post('/search_user', async (req, res, next) => {
                 socketId: 0
               }
             )
+            result = result.filter(item => item.userId !== decode.userId)
           }
           res.json(responseData(200, '获取成功', result))
         } catch (err) {
@@ -202,4 +231,5 @@ router.post('/search_user_by_id', async (req, res, next) => {
       })
   }
 })
+
 module.exports = router
