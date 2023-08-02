@@ -29,7 +29,6 @@ router.get('/user_info', function (req, res, next) {
           {},
           {
             __v: 0,
-            _id: 0,
             password: 0,
             isRegister: 0,
             registerCode: 0,
@@ -37,6 +36,8 @@ router.get('/user_info', function (req, res, next) {
             socketId: 0
           }
         )
+        const userInfo = result[0]
+        userInfo.userId = userInfo._id
         res.json(responseData(200, '获取成功', result[0]))
       } catch (error) {
         res.json(responseData(200, '获取失败'))
@@ -105,7 +106,15 @@ router.get('/friend_list', async (req, res, next) => {
     verificationToken(token)
       .then(async decode => {
         try {
-          const result = await sql.get(friendList, { userId: decode.userId })
+          const result = await sql.aggregate(
+            friendList,
+            { userId: decode.userId },
+            'user',
+            'friendId',
+            'userId',
+            'frinedInfo'
+          )
+          console.log(result);
           res.json(responseData(200, '获取成功', result))
         } catch (error) {
           res.json(responseData(200, '获取失败'))
@@ -128,7 +137,9 @@ router.get('/group_list', async (req, res, next) => {
     verificationToken(token)
       .then(async decode => {
         try {
-          const result = await sql.getOne(friendGroup, { userId: decode.userId })
+          const result = await sql.getOne(friendGroup, {
+            userId: decode.userId
+          })
           res.json(responseData(200, '获取成功', result.friendGroup))
         } catch (error) {
           res.json(responseData(200, '获取失败'))
@@ -142,7 +153,6 @@ router.get('/group_list', async (req, res, next) => {
   }
 })
 
-
 // 搜索用户
 router.post('/search_user', async (req, res, next) => {
   const token = req.get('Authorization')
@@ -154,11 +164,13 @@ router.post('/search_user', async (req, res, next) => {
       .then(async decode => {
         try {
           let result = null
-          if(searchTerm.includes('@')){
-             result = await sql.getOne(
-              user, { email: searchTerm }, {}, {
+          if (searchTerm.includes('@')) {
+            result = await sql.getOne(
+              user,
+              { email: searchTerm },
+              {},
+              {
                 __v: 0,
-                _id: 0,
                 password: 0,
                 isRegister: 0,
                 registerCode: 0,
@@ -166,16 +178,17 @@ router.post('/search_user', async (req, res, next) => {
                 socketId: 0
               }
             )
-            if(result.userId === decode.userId){
+            if (result.userId === decode.userId) {
               result = []
             }
-          }
-          else {
+          } else {
             const reg = new RegExp(searchTerm, 'i')
             result = await sql.get(
-              user, { userName: reg }, {}, {
+              user,
+              { userName: reg },
+              {},
+              {
                 __v: 0,
-                _id: 0,
                 password: 0,
                 isRegister: 0,
                 registerCode: 0,
@@ -209,9 +222,12 @@ router.post('/search_user_by_id', async (req, res, next) => {
       .then(async decode => {
         try {
           const result = await sql.getOne(
-            user, { userId:id }, {}, {
-              __v: 0,
+            user,
+            { userId: id },
+            {},
+            {
               _id: 0,
+              __v: 0,
               password: 0,
               isRegister: 0,
               registerCode: 0,

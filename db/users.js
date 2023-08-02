@@ -3,7 +3,7 @@ const mongoose = require('../mongo')
 const Schema = mongoose.Schema
 
 const userSchema = new Schema({
-  userId: { type: String }, // 用户id
+  userId: { type: Schema.Types.ObjectId, ref: 'user' }, // 用户id
   userName: { type: String, default: 'esaychat' }, // 用户名
   password: { type: String }, // 密码
   birthday: { type: String, default: '1999-01-01' }, // 生日

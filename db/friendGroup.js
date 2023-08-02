@@ -1,8 +1,10 @@
 const mongoose = require('../mongo')
+const Schema = mongoose.Schema
+
 
 // 好友分组表
 const friendGroupSchema = new mongoose.Schema({
-  userId: { type: String, ref: 'user' }, // 用户id
+  userId: { type: Schema.Types.ObjectId, ref: 'user' }, // 用户id
   friendGroup: {
     type: Array,
     default: [

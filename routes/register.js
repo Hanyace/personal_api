@@ -26,7 +26,7 @@ router.post('/', async (req, res, next) => {
       console.log('Error:手机号重复')
       return
     } else {
-      data.userId = uuid.v1()
+      // data.userId = uuid.v1()
       const num6 = randomCode(6)
       data.registerCode = num6
       const result = await sql.add(user, data)

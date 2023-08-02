@@ -41,7 +41,7 @@ const sql = {
   },
 
   // 查询
-  get: (colName, where = {}, sort = {}, mode = { _id: 0, __v: 0 }) => {
+  get: (colName, where = {}, sort = {}, mode = { __v: 0}) => {
     return new Promise((resolve, reject) => {
       colName.find(where, mode, { sort }, (err, data) => {
         if (err) {
@@ -54,7 +54,7 @@ const sql = {
   },
 
   // 查询单个
-  getOne: (colName, where = {}, sort = {}, mode = { _id: 0, __v: 0 }) => {
+  getOne: (colName, where = {}, sort = {}, mode = { __v: 0}) => {
     return new Promise((resolve, reject) => {
       colName.findOne(where, mode, { sort }, (err, data) => {
         if (err) {
@@ -66,6 +66,43 @@ const sql = {
     })
   },
 
+  // 联表查询
+  /**
+   * 
+   * @param {Object} colName 集合
+   * @param {Object} where 筛选条件
+   * @param {string} fromCol 联表的集合
+   * @param {string} localField 集合关联的键
+   * @param {string} foreignField 联表集合关联的键
+   * @param {string} as 新键名称
+   * @returns 
+   */
+  aggregate: (colName, where = {}, fromCol, localField , foreignField, as) => {
+    return new Promise((resolve, reject) => {
+      colName.aggregate([
+        {
+          $lookup: {
+            from: fromCol,
+            localField,
+            foreignField,
+            as
+          },
+        },
+        {
+          $match: where
+        }
+      ], (err, data) => {
+        if (err) {
+          reject(err)
+        } else {
+          data = JSON.parse(JSON.stringify(data))
+          resolve(data)
+        }
+      }
+    )
+  })
+  },
+
   // 分页查询
   getLimitSkip: (
     colName,
@@ -73,7 +110,7 @@ const sql = {
     sort = {},
     num = 5,
     page = 1,
-    mode = { _id: 0, __v: 0 }
+    mode = { __v: 0 }
   ) => {
     return new Promise((resolve, reject) => {
       colName
@@ -89,7 +126,11 @@ const sql = {
           }
         })
     })
-  }
+  },
+  
 }
+
+
+
 
 module.exports = sql
