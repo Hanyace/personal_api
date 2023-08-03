@@ -18,11 +18,11 @@ router.post('/', async (req, res, next) => {
   const data = req.body
   if (data.userName && data.password && data.tel && data.email) {
     if ((await sql.get(user, { email: data.email }))[0]) {
-      res.json(responseData(200, '邮箱重复'))
+      res.json(responseData(201, '邮箱重复'))
       console.log('Error:邮箱重复')
       return
     } else if ((await sql.get(user, { tel: data.tel }))[0]) {
-      res.json(responseData(200, '手机号重复'))
+      res.json(responseData(202, '手机号重复'))
       console.log('Error:手机号重复')
       return
     } else {
@@ -39,7 +39,7 @@ router.post('/', async (req, res, next) => {
       )
     }
   } else {
-    res.json(responseData(200, '缺少用户名密码或手机号'))
+    res.json(responseData(203, '缺少用户名密码或手机号'))
     console.log('Error:缺少用户名密码或手机号')
   }
   next()

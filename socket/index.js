@@ -24,19 +24,20 @@ module.exports = function (server) {
     const token = socket.handshake.auth.token
     // console.log(token);
     try {
-      const { userId } = await verificationToken(token)
+      const { _id } = await verificationToken(token)
+      console.log( 'id'+ _id);
       try {
-        const resUser = (await sql.get(user, { userId }))[0]
+        const resUser = (await sql.get(user, { _id }))[0]
         if (resUser.status === 0 || !resUser) {
           console.log('用户未登录')
           socket.disconnect()
-          await offline(userId)
+          await offline(_id)
         } else {
           // 写入socketId 更新用户状态
           // await sql.set(user, { userId }, { status: 1, socketId: socket.id })
 
           // 写入redisuserSatatus
-          await online(userId, socket.id)
+          await online(_id, socket.id)
           console.log(resUser.userName + '已连接')
           console.log('socketId：' + socket.id)
         }
@@ -44,7 +45,7 @@ module.exports = function (server) {
         // 出现错误断开连接
         console.log(error)
         socket.disconnect()
-        await offline(userId)
+        await offline(_id)
       }
 
       // -------------------- 模块函数 --------------------

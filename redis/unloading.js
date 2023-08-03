@@ -21,7 +21,7 @@ exports.writeFriendList = async userId => {
 
 // 登录之后将用户信息写入redis
 exports.writeUserInfo = async userId => {
-  const userInfo = await sql.getOne(user, { userId })
+  const userInfo = await sql.getOne(user, { _id:userId })
   await client.hSet(`userInfo`, userId, JSON.stringify(userInfo))
 }
 

@@ -4,7 +4,7 @@ const Schema = mongoose.Schema
 
 const userSchema = new Schema({
   userId: { type: Schema.Types.ObjectId, ref: 'user' }, // 用户id
-  userName: { type: String, default: 'esaychat' }, // 用户名
+  userName: { type: String }, // 用户名
   password: { type: String }, // 密码
   birthday: { type: String, default: '1999-01-01' }, // 生日
   age: { type: Number, default: 0 }, // 年龄
@@ -20,5 +20,7 @@ const userSchema = new Schema({
   time: { type: Date, default: Date.now() }, // 注册时间
   socketId: { type: String } // socketId
 })
+
+userSchema.index({_id: 1}, { unique: true })
 
 module.exports = mongoose.model('user', userSchema)

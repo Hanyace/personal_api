@@ -19,6 +19,7 @@ const { findFromList } = require('../redis/redisUtils')
 // 10.拉黑错误
 // 11.通过分组错误
 // 12.被通过验证
+// 13.回复验证消息
 
 // 添加好友验证
 exports.addFriend = (socket, io) => {
@@ -41,8 +42,8 @@ exports.addFriend = (socket, io) => {
       })
       return
     }
-    const friend = await sql.getOne(user, { userId: friendId })
-    const userInfo = await sql.getOne(user, { userId })
+    const friend = await sql.getOne(user, { _id: friendId })
+    const userInfo = await sql.getOne(user, { _id: userId })
     if (!friend) {
       // 没有这个用户
       io.to(socket.id).emit('friendControl', {
@@ -222,7 +223,7 @@ exports.addFriend = (socket, io) => {
       })
 
       // 判断是否在线
-      const friend = (await sql.get(user, { userId: friendId }))[0]
+      const friend = (await sql.get(user, { _id: friendId }))[0]
       if (isOnline != 0) {
         // 好友在线
         // 发送验证消息
@@ -435,6 +436,60 @@ exports.refuseFriend = (socket, io) => {
       // 发送拒绝成功消息
       io.to(friendSocketId).emit('friendControl', {
         message: '啊哦,有人拒绝了你的好友请求哦~',
+        type: 13
+      })
+    }
+  })
+}
+
+//  回复验证
+exports.replyFriend = (socket, io) => {
+  socket.on('replyFriend', async data => {
+    const { userId, friendId, message } = data
+    // 缺少id
+    if (!userId || !friendId) {
+      io.to(socket.id).emit('friendControl', {
+        type: 11,
+        message: '没有收到好友id哦~'
+      })
+      return
+    }
+    const time = new Date().getTime()
+    // 查询原来的消息
+    const friendData = await sql.getOne(friendList, {
+      userId: friendId,
+      friendId: userId
+    })
+    const addMessage = friendData.addMessage
+    addMessage.push({
+      message,
+      time,
+      type: 0
+    })
+    // 执行回复
+    // 我的
+    await sql.set(friendList, { userId, friendId }, { addMessage })
+    // 好友
+    await sql.set(
+      friendList,
+      { userId: friendId, friendId: userId },
+      { addMessage: {
+        ...addMessage,
+        type: 0
+      }, isView: false }
+    )
+    // 给自己发送回复成功消息
+    io.to(socket.id).emit('friendControl', {
+      message: '回复成功!',
+      type: 13
+    })
+    // 好友在线
+    const isOnline = await client.hGet('userSatatus', friendId)
+    const friendSocketId = await client.hGet('userSocketId', friendId)
+    if (isOnline != 0) {
+      // 发送回复成功消息
+      io.to(friendSocketId).emit('friendControl', {
+        message: '有人回复了你的好友请求哦~',
         type: 13
       })
     }

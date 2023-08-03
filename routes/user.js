@@ -1,5 +1,6 @@
 var express = require('express')
 var router = express.Router()
+const mongoose = require('mongoose');
 const user = require('../db/users')
 const sql = require('../db/sql')
 const chartList = require('../db/chartList')
@@ -25,7 +26,7 @@ router.get('/user_info', function (req, res, next) {
       try {
         const result = await sql.get(
           user,
-          { userId: decode.userId },
+          { _id: decode._id },
           {},
           {
             __v: 0,
@@ -36,8 +37,6 @@ router.get('/user_info', function (req, res, next) {
             socketId: 0
           }
         )
-        const userInfo = result[0]
-        userInfo.userId = userInfo._id
         res.json(responseData(200, '获取成功', result[0]))
       } catch (error) {
         res.json(responseData(200, '获取失败'))
@@ -87,7 +86,7 @@ router.get('/chart_list', async (req, res, next) => {
         res.json(responseData(401, 'token失效'))
       } else {
         try {
-          const result = await sql.get(chartList, { userId: decode.userId })
+          const result = await sql.get(chartList, { userId: decode._id })
           res.json(responseData(200, '获取成功', result))
         } catch (error) {
           res.json(responseData(200, '获取失败'))
@@ -98,7 +97,7 @@ router.get('/chart_list', async (req, res, next) => {
 })
 
 // 查询用户好友列表
-router.get('/friend_list', async (req, res, next) => {
+router.get('/friend_list', async (req, res, next) => {  
   const token = req.get('Authorization')
   if (!token) {
     res.json(responseData(401, '缺少token'))
@@ -106,15 +105,19 @@ router.get('/friend_list', async (req, res, next) => {
     verificationToken(token)
       .then(async decode => {
         try {
-          const result = await sql.aggregate(
-            friendList,
-            { userId: decode.userId },
-            'user',
+          const userId = mongoose.Types.ObjectId(decode._id)
+          // const result = await sql.aggregate(
+          //   friendList,
+          //   { userId },
+          //   'user',
+          //   'friendId',
+          //   '_id',
+          //   'frinedInfo'
+          // )
+          const result = await sql.populate(friendList, {userId: decode._id},
             'friendId',
-            'userId',
-            'frinedInfo'
-          )
-          console.log(result);
+            )
+          console.log('friendList'+result);
           res.json(responseData(200, '获取成功', result))
         } catch (error) {
           res.json(responseData(200, '获取失败'))
@@ -137,10 +140,15 @@ router.get('/group_list', async (req, res, next) => {
     verificationToken(token)
       .then(async decode => {
         try {
+          console.log('decode' + decode);
           const result = await sql.getOne(friendGroup, {
-            userId: decode.userId
+            userId: decode._id
           })
-          res.json(responseData(200, '获取成功', result.friendGroup))
+          if(result) {
+            res.json(responseData(200, '获取成功', result.friendGroup))
+          }else {
+            res.json(responseData(200, '获取失败'))
+          }
         } catch (error) {
           res.json(responseData(200, '获取失败'))
           console.log(error)
@@ -178,7 +186,7 @@ router.post('/search_user', async (req, res, next) => {
                 socketId: 0
               }
             )
-            if (result.userId === decode.userId) {
+            if (result._id === decode._id) {
               result = []
             }
           } else {
@@ -196,7 +204,7 @@ router.post('/search_user', async (req, res, next) => {
                 socketId: 0
               }
             )
-            result = result.filter(item => item.userId !== decode.userId)
+            result = result.filter(item => item._id !== decode._id)
           }
           res.json(responseData(200, '获取成功', result))
         } catch (err) {
@@ -223,10 +231,9 @@ router.post('/search_user_by_id', async (req, res, next) => {
         try {
           const result = await sql.getOne(
             user,
-            { userId: id },
+            { _id: id },
             {},
             {
-              _id: 0,
               __v: 0,
               password: 0,
               isRegister: 0,

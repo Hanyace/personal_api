@@ -10,9 +10,9 @@ const JWT_KEY = key
 
 router.post('/', async (req, res, next) => {
   const { userName, password } = req.body
-  const result = await sql.get(user, { userName, password })
-  if (result[0]) {
-    const token = jwt.sign({ userId: result[0].userId }, JWT_KEY, {
+  const result = await sql.getOne(user, { userName, password })
+  if (result) {
+    const token = jwt.sign({ _id: result._id }, JWT_KEY, {
       expiresIn: 3600
     })
     sql.set(user, { userName },  { status: 1 })

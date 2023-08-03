@@ -15,7 +15,7 @@ router.get('/get', function (req, res, next) {
   verificationToken(token)
     .then(async decode => {
       try {
-        let result = await sql.get(chartList, { userId: decode.userId })
+        let result = await sql.get(chartList, { userId: decode._id })
         res.json(responseData(200, '获取聊天列表获取成功', result))
       } catch (error) {
         res.json(responseData(200, '获取聊天列表获取失败'))
@@ -39,11 +39,11 @@ router.post('/delete', function (req, res, next) {
       .then(async decode => {
         try {
           await sql.remove(chartList, {
-            userId: decode.userId,
+            userId: decode._id,
             friendId: data.friendId
           })
           res.json(responseData(200, '删除聊天列表成功'))
-          console.log(decode.userId + '删除聊天列表成功')
+          console.log(decode._id + '删除聊天列表成功')
         } catch (error) {
           res.json(responseData(200, '删除聊天列表失败'))
           console.log(error)
@@ -69,7 +69,7 @@ router.post('/top', function (req, res, next) {
           await sql.set(
             chartList,
             {
-              userId: decode.userId,
+              userId: decode._id,
               friendId: data.friendId
             },
             {
@@ -82,7 +82,7 @@ router.post('/top', function (req, res, next) {
           } else {
             res.json(responseData(200, '取消置顶聊天列表成功'))
           }
-          console.log(decode.userId + '置顶聊天列表成功')
+          console.log(decode._id + '置顶聊天列表成功')
         } catch (error) {
           res.json(responseData(200, '置顶聊天列表失败'))
           console.log(error)
