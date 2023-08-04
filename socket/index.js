@@ -3,7 +3,10 @@ const {
   addFriend,
   deleteFriend,
   blacklistFriend,
-  passFriend
+  passFriend,
+  refuseFriend,
+  replyFriend,
+  viewFriend
 } = require('./friendControl')
 const { verificationToken } = require('../jwt')
 const sql = require('../db/sql')
@@ -59,6 +62,12 @@ module.exports = function (server) {
       blacklistFriend(socket, io)
       // 通过好友监听
       passFriend(socket, io)
+      // 拒绝好友监听
+      refuseFriend(socket, io)
+      // 回复好友监听
+      replyFriend(socket, io)
+      // 查看好友监听
+      viewFriend(socket, io)
     } catch (error) {
       // 没有token断开连接
       socket.emit('disconnect_msg', {

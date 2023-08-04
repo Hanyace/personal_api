@@ -4,6 +4,9 @@ const chartRecord = require('../db/chartRecord')
 const chartList = require('../db/chartList')
 const friendList = require('../db/friendList')
 const client = require('../redis')
+const dayjs = require('dayjs');
+var relativeTime = require('dayjs/plugin/relativeTime')
+dayjs.extend(relativeTime)
 // 避免直接使用硬盘数据库
 
 
@@ -30,7 +33,8 @@ exports.singleChart = (socket, io) => {
       // 使用redis 读取好友表
       let friendList = await client.hGet(`friendList`, data.userId)
       friendList = JSON.parse(friendList)
-      const isFrind = friendList.find(item => item.friendId === data.friendId)
+      console.log(friendList);
+      const isFrind = friendList.find(item => item.friendId._id === data.friendId)
       if (!isFrind || isFrind.friendType != 1) {
         console.log('Error:还不是好友')
         io.to(socket.id).emit('singleChartRes', {
@@ -176,8 +180,10 @@ exports.singleChart = (socket, io) => {
         messageType: data.messageType
       }
       // 如果好友在线
-      const isOnline = await client.hGet('userSatatus', friendId)
-      const friendSocketId = await client.hGet('userSocketId', friendId)
+      const isOnline = await client.hGet('userSatatus', data.friendId)
+      const friendSocketId = await client.hGet('userSocketId', data.friendId)
+      let chatListOfMe = await client.hGet(`chartList:${data.friendId}`, data.userId)
+      chatListOfMe = JSON.parse(chatListOfMe)
       if (isOnline != 0) {
         //朋友
         io.to(friendSocketId).emit('singleChart', emitData)
@@ -185,7 +191,7 @@ exports.singleChart = (socket, io) => {
         io.to(friendSocketId).emit('chartList', {
           ...emitListData,
           friendId: data.userId,
-          messageNum: friend.messageNum + 1
+          messageNum: chatListOfMe.messageNum + 1
         })
       }
       //自己

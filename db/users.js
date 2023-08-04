@@ -21,6 +21,6 @@ const userSchema = new Schema({
   socketId: { type: String } // socketId
 })
 
-userSchema.index({_id: 1}, { unique: true })
+// userSchema.index({_id: 1}, { unique: true })
 
 module.exports = mongoose.model('user', userSchema)

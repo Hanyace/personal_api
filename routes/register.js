@@ -7,6 +7,7 @@ const uuid = require('node-uuid')
 const { responseData } = require('../utils/response')
 const { sendMail } = require('../utils/nodemailer')
 const { randomCode } = require('../utils/math')
+const dayjs = require('dayjs');
 
 // router.get('/', function(req, res, next) {
 //     res.send('register')
@@ -28,6 +29,11 @@ router.post('/', async (req, res, next) => {
     } else {
       // data.userId = uuid.v1()
       const num6 = randomCode(6)
+      let age = 0
+      if(data.birthday){
+        age = dayjs().diff(dayjs(data.birthday), 'year')
+        data.age = age
+      }
       data.registerCode = num6
       const result = await sql.add(user, data)
       console.log(result)
@@ -69,7 +75,7 @@ router.post('/verify', async (req, res, next) => {
       // 注册成功
       await sql.set(user, { email: data.email }, { isRegister: true })
       // 添加默认分组
-      await sql.add(friendGroup, {userId: result[0].userId})
+      await sql.add(friendGroup, {userId: result[0]._id})
       res.json(responseData(200, '注册成功'))
       console.log(result[0].userName + '注册成功')
     } else {

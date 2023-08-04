@@ -15,7 +15,7 @@ cron.schedule('0 1 * * *', async () => {
 
 // 登录之后将用户好友表写入redis
 exports.writeFriendList = async userId => {
-  const friendListRes = await sql.get(friendList, { userId })
+  const friendListRes = await sql.populate(friendList, { userId }, 'friendId')
   await client.hSet(`friendList`, userId, JSON.stringify(friendListRes))
 }
 
@@ -27,7 +27,7 @@ exports.writeUserInfo = async userId => {
 
 // 登录之后将用户聊天表写入redis
 exports.writeChartList = async userId => {
-  const chartListRes = await sql.get(chartList, { userId })
+  const chartListRes = await sql.populate(chartList, { userId },'friendId')
   if (chartListRes.length === 0) return
   const chartListObj = {}
   chartListRes.forEach(item => {

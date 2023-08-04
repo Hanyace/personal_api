@@ -4,6 +4,7 @@ const sql = require('../db/sql')
 const chartList = require('../db/chartList')
 const { verificationToken } = require('../jwt')
 const { responseData } = require('../utils/response')
+const client = require('../redis')
 
 // 获取聊天列表
 router.get('/get', function (req, res, next) {
@@ -15,8 +16,15 @@ router.get('/get', function (req, res, next) {
   verificationToken(token)
     .then(async decode => {
       try {
-        let result = await sql.get(chartList, { userId: decode._id })
-        res.json(responseData(200, '获取聊天列表获取成功', result))
+        let result = await client.hGetAll(`chartList:${decode._id}`)
+        let list = []
+        if(result) {
+          for (const key in result) {
+              const element = result[key];
+              list.push(JSON.parse(element))
+          }
+        }
+        res.json(responseData(200, '获取聊天列表获取成功', list))
       } catch (error) {
         res.json(responseData(200, '获取聊天列表获取失败'))
         console.log(error)

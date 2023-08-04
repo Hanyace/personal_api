@@ -1,6 +1,6 @@
 var express = require('express')
 var router = express.Router()
-const mongoose = require('mongoose');
+const mongoose = require('mongoose')
 const user = require('../db/users')
 const sql = require('../db/sql')
 const chartList = require('../db/chartList')
@@ -86,7 +86,7 @@ router.get('/chart_list', async (req, res, next) => {
         res.json(responseData(401, 'token失效'))
       } else {
         try {
-          const result = await sql.get(chartList, { userId: decode._id })
+          const result = await sql.populate(chartList, { userId: decode._id },'friendId')
           res.json(responseData(200, '获取成功', result))
         } catch (error) {
           res.json(responseData(200, '获取失败'))
@@ -97,7 +97,7 @@ router.get('/chart_list', async (req, res, next) => {
 })
 
 // 查询用户好友列表
-router.get('/friend_list', async (req, res, next) => {  
+router.get('/friend_list', async (req, res, next) => {
   const token = req.get('Authorization')
   if (!token) {
     res.json(responseData(401, '缺少token'))
@@ -114,10 +114,12 @@ router.get('/friend_list', async (req, res, next) => {
           //   '_id',
           //   'frinedInfo'
           // )
-          const result = await sql.populate(friendList, {userId: decode._id},
-            'friendId',
-            )
-          console.log('friendList'+result);
+          const result = await sql.populate(
+            friendList,
+            { userId: decode._id },
+            'friendId'
+          )
+          console.log('friendList' + result)
           res.json(responseData(200, '获取成功', result))
         } catch (error) {
           res.json(responseData(200, '获取失败'))
@@ -140,13 +142,12 @@ router.get('/group_list', async (req, res, next) => {
     verificationToken(token)
       .then(async decode => {
         try {
-          console.log('decode' + decode);
           const result = await sql.getOne(friendGroup, {
             userId: decode._id
           })
-          if(result) {
+          if (result) {
             res.json(responseData(200, '获取成功', result.friendGroup))
-          }else {
+          } else {
             res.json(responseData(200, '获取失败'))
           }
         } catch (error) {
