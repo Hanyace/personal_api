@@ -14,6 +14,7 @@ dayjs.extend(relativeTime)
 exports.singleChart = (socket, io) => {
   socket.on('singleChart', async data => {
     console.log(data)
+
     const messageTime = new Date().getTime()
     try {
       // 不太可能出现这种情况不存在就不是好友,所以不用判断
@@ -33,7 +34,9 @@ exports.singleChart = (socket, io) => {
       // 使用redis 读取好友表
       let friendList = await client.hGet(`friendList`, data.userId)
       friendList = JSON.parse(friendList)
-      console.log(friendList);
+      // console.log(friendList);
+      let userInfo = await client.hGet(`userInfo`, data.userId)
+      userInfo = JSON.parse(userInfo)
       const isFrind = friendList.find(item => item.friendId._id === data.friendId)
       if (!isFrind || isFrind.friendType != 1) {
         console.log('Error:还不是好友')
@@ -86,7 +89,11 @@ exports.singleChart = (socket, io) => {
             lastTime: messageTime,
             lastMessage: data.message,
             messageType: data.messageType,
-            messageNum: messageNum
+            messageNum: messageNum,
+            isTop: false,
+            setTopTime: null,
+            friendId: userInfo,
+            userId: data.friendId
           })
         )
         // sql.set(
@@ -107,7 +114,11 @@ exports.singleChart = (socket, io) => {
             lastTime: messageTime,
             lastMessage: data.message,
             messageType: data.messageType,
-            messageNum: 0
+            messageNum: 0,
+            isTop: false,
+            setTopTime: null,
+            friendId: isFrind.friendId,
+            userId: data.userId
           })
         )
         // sql.set(
@@ -128,12 +139,14 @@ exports.singleChart = (socket, io) => {
           `chartList:${data.friendId}`,
           `${data.userId}`,
           JSON.stringify({
-            userId: data.friendId,
-            friendId: data.userId,
             lastTime: messageTime,
             lastMessage: data.message,
             messageType: data.messageType,
-            messageNum: 1
+            messageNum: 1,
+            isTop: false,
+            setTopTime: null,
+            friendId: userInfo,
+            userId: data.friendId
           })
         )
         // await sql.add(chartList, {
@@ -149,12 +162,14 @@ exports.singleChart = (socket, io) => {
           `chartList:${data.userId}`,
           `${data.friendId}`,
           JSON.stringify({
-            userId: data.userId,
-            friendId: data.friendId,
             lastTime: messageTime,
             lastMessage: data.message,
             messageType: data.messageType,
-            messageNum: 0
+            messageNum: 0,
+            isTop: false,
+            setTopTime: null,
+            friendId: isFrind.friendId,
+            userId: data.userId
           })
         )
         // await sql.add(chartList, {
@@ -181,17 +196,21 @@ exports.singleChart = (socket, io) => {
       }
       // 如果好友在线
       const isOnline = await client.hGet('userSatatus', data.friendId)
-      const friendSocketId = await client.hGet('userSocketId', data.friendId)
+      console.log('isOnline', isOnline);
+      const friendSocketId = await client.hGet('socketId', data.friendId)
       let chatListOfMe = await client.hGet(`chartList:${data.friendId}`, data.userId)
       chatListOfMe = JSON.parse(chatListOfMe)
+      console.log(chatListOfMe);
       if (isOnline != 0) {
         //朋友
+        let messageNum = chatListOfMe.messageNum
+        console.log(friendSocketId);
         io.to(friendSocketId).emit('singleChart', emitData)
         //朋友
         io.to(friendSocketId).emit('chartList', {
           ...emitListData,
           friendId: data.userId,
-          messageNum: chatListOfMe.messageNum + 1
+          messageNum: messageNum + 1
         })
       }
       //自己

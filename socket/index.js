@@ -6,13 +6,19 @@ const {
   passFriend,
   refuseFriend,
   replyFriend,
-  viewFriend
+  viewFriend,
 } = require('./friendControl')
 const { verificationToken } = require('../jwt')
 const sql = require('../db/sql')
 const user = require('../db/users')
 const client = require('../redis')
-const { writeFriendList, writeUserInfo, writeChartList } = require('../redis/unloading')
+const {
+  writeFriendList,
+  writeUserInfo,
+  writeChartList,
+  writeChartListToDB,
+  writeChartRecordToDB
+} = require('../redis/unloading')
 
 module.exports = function (server) {
   const io = require('socket.io')(server, {
@@ -28,7 +34,7 @@ module.exports = function (server) {
     // console.log(token);
     try {
       const { _id } = await verificationToken(token)
-      console.log( 'id'+ _id);
+      console.log('id' + _id)
       try {
         const resUser = (await sql.get(user, { _id }))[0]
         if (resUser.status === 0 || !resUser) {
@@ -50,6 +56,13 @@ module.exports = function (server) {
         socket.disconnect()
         await offline(_id)
       }
+
+      // 监听断开连接
+      socket.on('disconnect', async () => {
+        const resUser = await sql.getOne(user, { _id })
+        console.log(resUser.userName + '断开连接')
+        await offline(_id)
+      })
 
       // -------------------- 模块函数 --------------------
       // 单聊监听
@@ -85,6 +98,8 @@ module.exports = function (server) {
 async function offline (userId) {
   await client.hSet('userSatatus', userId, 0)
   await client.hDel('socketId', userId)
+  await writeChartListToDB(userId)
+  await writeChartRecordToDB(userId)
   console.log(userId + '离线')
 }
 
