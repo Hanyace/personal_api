@@ -1,4 +1,4 @@
-const { singleChart } = require('./chartting')
+const { singleChart, chatList } = require('./chartting')
 const {
   addFriend,
   deleteFriend,
@@ -67,6 +67,8 @@ module.exports = function (server) {
       // -------------------- 模块函数 --------------------
       // 单聊监听
       singleChart(socket, io)
+      // 好友列表监听
+      chatList(socket, io)
       // 添加好友监听
       addFriend(socket, io)
       // 删除好友监听

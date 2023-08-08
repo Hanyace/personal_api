@@ -4,11 +4,10 @@ const chartRecord = require('../db/chartRecord')
 const chartList = require('../db/chartList')
 const friendList = require('../db/friendList')
 const client = require('../redis')
-const dayjs = require('dayjs');
+const dayjs = require('dayjs')
 var relativeTime = require('dayjs/plugin/relativeTime')
 dayjs.extend(relativeTime)
 // 避免直接使用硬盘数据库
-
 
 // 单聊
 exports.singleChart = (socket, io) => {
@@ -19,7 +18,7 @@ exports.singleChart = (socket, io) => {
     try {
       // 不太可能出现这种情况不存在就不是好友,所以不用判断
       // const friend = await sql.getOne(user, { userId: data.friendId })
-      // // 判断好友是否存在  
+      // // 判断好友是否存在
       // if (!friend) {
       //   console.log('Error:好友不存在')
       //   io.to(socket.id).emit('singleChartRes', {
@@ -37,7 +36,9 @@ exports.singleChart = (socket, io) => {
       // console.log(friendList);
       let userInfo = await client.hGet(`userInfo`, data.userId)
       userInfo = JSON.parse(userInfo)
-      const isFrind = friendList.find(item => item.friendId._id === data.friendId)
+      const isFrind = friendList.find(
+        item => item.friendId._id === data.friendId
+      )
       if (!isFrind || isFrind.friendType != 1) {
         console.log('Error:还不是好友')
         io.to(socket.id).emit('singleChartRes', {
@@ -89,7 +90,7 @@ exports.singleChart = (socket, io) => {
             lastTime: messageTime,
             lastMessage: data.message,
             messageType: data.messageType,
-            messageNum: messageNum,
+            messageNum,
             isTop: false,
             setTopTime: null,
             friendId: userInfo,
@@ -196,21 +197,24 @@ exports.singleChart = (socket, io) => {
       }
       // 如果好友在线
       const isOnline = await client.hGet('userSatatus', data.friendId)
-      console.log('isOnline', isOnline);
+      console.log('isOnline', isOnline)
       const friendSocketId = await client.hGet('socketId', data.friendId)
-      let chatListOfMe = await client.hGet(`chartList:${data.friendId}`, data.userId)
-      chatListOfMe = JSON.parse(chatListOfMe)
-      console.log(chatListOfMe);
+      // let chatListOfMe = await client.hGet(
+      //   `chartList:${data.friendId}`,
+      //   data.userId
+      // )
+      // chatListOfMe = JSON.parse(chatListOfMe)
+      // console.log(chatListOfMe)
       if (isOnline != 0) {
         //朋友
-        let messageNum = chatListOfMe.messageNum
-        console.log(friendSocketId);
+        // let messageNum = chatListOfMe.messageNum
+        // console.log(friendSocketId)
         io.to(friendSocketId).emit('singleChart', emitData)
         //朋友
         io.to(friendSocketId).emit('chartList', {
           ...emitListData,
           friendId: data.userId,
-          messageNum: messageNum + 1
+          messageNum: messageNum
         })
       }
       //自己
@@ -228,5 +232,61 @@ exports.singleChart = (socket, io) => {
     } catch (error) {
       console.log('Error:' + error)
     }
+  })
+}
+
+// chatList
+// 1:读取
+// 2:删除
+// 3:置顶
+// 4:取消置顶
+
+exports.chatList = (socket, io) => {
+  socket.on('chatList', async data => {
+    const { type, userId, friendId } = data
+    // 先获取chartList里好友那条
+    let friend = await client.hGet(`chartList:${userId}`, `${friendId}`)
+    friend = JSON.parse(friend)
+    // 将消息状态改为已读
+    try {
+      if (type == 1) {
+        client.hSet(`chartList:${userId}`, `${friendId}`, JSON.stringify({
+          ...friend,
+          messageNum: 0
+        }))
+        io.to(socket.id).emit('chartList', {
+          type: 1,
+          friendId: friendId
+        })
+      } else if (type == 2) {
+        client.hDel(`chartList:${userId}`, `${friendId}`)
+        io.to(socket.id).emit('chartList', {
+          type: 2,
+          friendId: friendId
+        })
+      } else if (type == 3) {
+        const setTopTime = new Date().getTime()
+        client.hSet(`chartList:${userId}`, `${friendId}`, JSON.stringify({
+          ...friend,
+          isTop: true,
+          setTopTime
+        }))
+        io.to(socket.id).emit('chartList', {
+          type: 3,
+          friendId: friendId,
+          setTopTime
+        })
+      } else if (type == 4) {
+        client.hSet(`chartList:${userId}`, `${friendId}`, JSON.stringify({
+          ...friend,
+          isTop: false,
+          setTopTime: null
+        }))
+        io.to(socket.id).emit('chartList', {
+          type: 4,
+          friendId: friendId
+        })
+      }
+    } catch (error) {}
   })
 }
