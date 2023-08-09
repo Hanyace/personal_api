@@ -46,34 +46,47 @@ router.get('/user_info', function (req, res, next) {
 })
 
 // 上传图片
-router.post('/upload_avatar', (req, res, next) => {
-  const data = req.files[0]
-  const port = 3000
-  //  解析原数据
-  const token = req.get('Authorization')
-  if (!token) {
-    res.json(responseData(401, '缺少token'))
-  } else {
-    jwt.verify(token, JWT_KEY, async (err, decode) => {
-      if (err) {
-        res.json(responseData(401, 'token失效'))
-      } else {
-        try {
-          const fileObj = path.parse(data.originalname)
-          const newFile = data.path + '-' + fileObj.base
-          fs.renameSync(data.path, newFile)
-          const urlData = `${req.protocol}://${req.hostname}:${port}${multer.file_target}/${data.filename}-${fileObj.base}`
-          console.log(decode.userId)
-          sql.set(user, { userId: decode.userId }, { avatar: urlData })
-          res.json(responseData(200, '上传成功', { url: urlData }))
-        } catch (error) {
-          console.log(error)
-          res.json(responseData(200, '上传失败'))
-        }
-      }
-    })
+router.post(
+  '/upload_avatar',
+  multer.upload.single('file'),
+  async (req, res, next) => {
+    // const data = req.files[0]
+    // const port = 3000
+    // //  解析原数据
+    // const token = req.get('Authorization')
+    // if (!token) {
+    //   res.json(responseData(401, '缺少token'))
+    // } else {
+    //   jwt.verify(token, JWT_KEY, async (err, decode) => {
+    //     if (err) {
+    //       res.json(responseData(401, 'token失效'))
+    //     } else {
+    //       try {
+    //         const fileObj = path.parse(data.originalname)
+    //         const newFile = data.path + '-' + fileObj.base
+    //         fs.renameSync(data.path, newFile)
+    //         const urlData = `${req.protocol}://${req.hostname}:${port}${multer.file_target}/${data.filename}-${fileObj.base}`
+    //         console.log(decode.userId)
+    //         await sql.set(user, { _id: decode._id }, { avatar: urlData })
+    //         res.json(responseData(200, '上传成功', { url: urlData }))
+    //       } catch (error) {
+    //         console.log(error)
+    //         res.json(responseData(200, '上传失败'))
+    //       }
+    //     }
+    //   })
+    // }
+    res.send('File uploaded successfully');
   }
-})
+)
+
+// 错误处理中间件
+router.use((err, req, res, next) => {
+  if (err) {
+    console.error(err);
+    res.status(400).send(err.message);
+  }
+});
 
 // 查询用户聊天表
 router.get('/chart_list', async (req, res, next) => {
@@ -86,7 +99,11 @@ router.get('/chart_list', async (req, res, next) => {
         res.json(responseData(401, 'token失效'))
       } else {
         try {
-          const result = await sql.populate(chartList, { userId: decode._id },'friendId')
+          const result = await sql.populate(
+            chartList,
+            { userId: decode._id },
+            'friendId'
+          )
           res.json(responseData(200, '获取成功', result))
         } catch (error) {
           res.json(responseData(200, '获取失败'))
